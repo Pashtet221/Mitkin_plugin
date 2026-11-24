@@ -32,8 +32,16 @@
     background: var(--ml-paper);
     overflow: hidden;
 }
-.ml-cover { aspect-ratio: 6 / 7; background: #eae3d8; }
-.ml-cover img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ml-cover { position: relative; flex: none; aspect-ratio: 6 / 7; overflow: hidden; background: #eae3d8; }
+.ml-card .ml-cover > img {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
 .ml-card-body { display: flex; flex: 1; flex-direction: column; padding: 14px; }
 .ml-card h3 { font-size: clamp(20px, 2vw, 29px); }
 .ml-caption { color: var(--ml-muted); margin: 5px 0 14px; }
@@ -115,9 +123,17 @@ html:has(.ml-dialog[open]) { overflow: hidden; }
 }
 .ml-dialog::backdrop { background: #211d17a3; backdrop-filter: blur(3px); }
 .ml-dialog-layout.ml-has-photo { display: grid; grid-template-columns: 36% 64%; }
-.ml-look-photo { position: relative; min-height: 100%; background: #e0d6c5; }
-.ml-look-photo img { position: absolute; width: 100%; height: 100%; object-fit: cover; }
-.ml-look-photo > span { position: absolute; inset: auto 0 0; color: white; padding: 44px 20px 21px; background: linear-gradient(transparent, #231f18a8); font-size: 25px; }
+.ml-look-photo { position: relative; background: #eae3d8; }
+.ml-dialog .ml-look-photo > img {
+    position: absolute;
+    inset: 0;
+    display: block;
+    width: 100%;
+    height: 100%;
+    padding: clamp(12px, 2vw, 24px);
+    object-fit: contain;
+    object-position: center;
+}
 .ml-form { position: relative; margin: 0; padding: clamp(24px, 4vw, 42px); }
 .ml-dialog h2 { font-size: clamp(30px, 4vw, 43px); margin: 5px 28px 7px 0; }
 .ml-form .ml-close {

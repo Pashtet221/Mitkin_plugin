@@ -129,12 +129,13 @@ function mitkin_looks_count($count) {
 }
 
 add_action('wp_enqueue_scripts', static function () {
-    wp_enqueue_style('mitkin-looks', plugins_url('assets/looks.css', __FILE__), [], '1.0.0');
+    wp_enqueue_style('mitkin-looks', plugins_url('assets/looks.css', __FILE__), [], '1.0.1');
     wp_register_script('mitkin-looks', plugins_url('assets/looks.js', __FILE__), [], '1.0.0', true);
 });
 
 add_shortcode('mitkin_looks', static function ($attributes) {
-    $attributes = shortcode_atts(['ids' => '', 'heading' => 'yes'], $attributes, 'mitkin_looks');
+    $attributes = shortcode_atts(['ids' => '', 'heading' => 'yes', 'limit' => ''], $attributes, 'mitkin_looks');
+    $remaining = filter_var($attributes['limit'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
     $ids = wp_parse_id_list($attributes['ids']);
     $looks = get_posts([
         'post_type' => 'mitkin_look', 'post_status' => 'publish', 'numberposts' => -1,
@@ -158,7 +159,9 @@ add_shortcode('mitkin_looks', static function ($attributes) {
         <?php endif; ?>
         <div class="ml-grid">
             <?php foreach ($looks as $look) {
-                mitkin_looks_render($look);
+                if (mitkin_looks_render($look) && $remaining !== false && --$remaining === 0) {
+                    break;
+                }
             } ?>
         </div>
     </section>
@@ -189,7 +192,7 @@ function mitkin_looks_render($look) {
         $sale += wc_get_price_to_display($choices[0], ['price' => mitkin_looks_sale_price($choices[0]->get_price())]);
     }
     if (count($rows) < 2) {
-        return;
+        return false;
     }
     $title = get_the_title($look);
     $photo = absint(get_post_meta($look->ID, '_mitkin_photo', true)) ?: get_post_thumbnail_id($look);
@@ -219,7 +222,7 @@ function mitkin_looks_render($look) {
         <dialog class="ml-dialog" id="<?php echo esc_attr($dialog); ?>" aria-labelledby="<?php echo esc_attr($dialog . '-title'); ?>">
             <div class="ml-dialog-layout<?php echo $photo ? ' ml-has-photo' : ''; ?>">
                 <?php if ($photo) : ?>
-                    <div class="ml-look-photo"><?php echo wp_get_attachment_image($photo, 'large', false, ['loading' => 'lazy']); ?><span><?php echo esc_html($title); ?></span></div>
+                    <div class="ml-look-photo"><?php echo wp_get_attachment_image($photo, 'large', false, ['loading' => 'lazy']); ?></div>
                 <?php endif; ?>
                 <form class="ml-form" data-complete="<?php echo $complete ? '1' : '0'; ?>">
                     <button class="ml-close" type="button" aria-label="Закрыть">×</button>
@@ -244,6 +247,7 @@ function mitkin_looks_render($look) {
         </dialog>
     </article>
     <?php
+    return true;
 }
 
 function mitkin_looks_render_row($product, array $choices) {
