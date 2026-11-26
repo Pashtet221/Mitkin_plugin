@@ -27,21 +27,22 @@ document.querySelectorAll('.ml-looks').forEach((section) => {
 
             rows.forEach((row) => {
                 const checkbox = row.querySelector('.ml-select');
-                const field = row.querySelector('.ml-choice');
-                if (!field) return;
-                field.disabled = !checkbox.checked || pending;
-                const option = field.selectedOptions[0];
+                const sizes = row.querySelector('.ml-size');
+                const option = sizes ? sizes.querySelector('.ml-choice:checked') : row.querySelector('.ml-choice');
+                const amounts = option || sizes;
+                if (!amounts) return;
+                if (sizes) sizes.disabled = !checkbox.checked || pending;
                 row.classList.toggle('ml-excluded', !checkbox.checked);
-                row.querySelector('.ml-line-price').textContent = price(Number(option.dataset.price));
+                row.querySelector('.ml-line-price').textContent = price(Number(amounts.dataset.price));
 
                 if (!checkbox.checked) return;
                 count += 1;
-                base += Number(option.dataset.price);
-                discounted += Number(option.dataset.sale);
-                if (field.value === '') {
+                base += Number(amounts.dataset.price);
+                discounted += Number(amounts.dataset.sale);
+                if (!option) {
                     missing = true;
                 } else {
-                    selection[row.dataset.product] = Number(field.value);
+                    selection[row.dataset.product] = Number(option.value);
                 }
             });
 
@@ -83,8 +84,9 @@ document.querySelectorAll('.ml-looks').forEach((section) => {
             if (missing) {
                 message.textContent = 'Выберите размер каждой отмеченной вещи.';
                 message.hidden = false;
-                rows.map((row) => row.querySelector('.ml-choice'))
-                    .find((field) => field && !field.disabled && field.value === '')?.focus();
+                rows.map((row) => row.querySelector('.ml-size'))
+                    .find((sizes) => sizes && !sizes.disabled && !sizes.querySelector('.ml-choice:checked'))
+                    ?.querySelector('.ml-choice')?.focus();
                 return;
             }
             if (!Object.keys(selection).length) return;

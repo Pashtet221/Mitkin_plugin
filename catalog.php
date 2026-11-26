@@ -129,12 +129,14 @@ function mitkin_looks_count($count) {
 }
 
 add_action('wp_enqueue_scripts', static function () {
-    wp_enqueue_style('mitkin-looks', plugins_url('assets/looks.css', __FILE__), [], '1.0.1');
-    wp_register_script('mitkin-looks', plugins_url('assets/looks.js', __FILE__), [], '1.0.0', true);
+    wp_enqueue_style('mitkin-looks', plugins_url('assets/looks.css', __FILE__), [], '1.0.2');
+    wp_register_script('mitkin-looks', plugins_url('assets/looks.js', __FILE__), [], '1.0.2', true);
 });
 
 add_shortcode('mitkin_looks', static function ($attributes) {
-    $attributes = shortcode_atts(['ids' => '', 'heading' => 'yes', 'limit' => ''], $attributes, 'mitkin_looks');
+    $attributes = shortcode_atts(['ids' => '', 'heading' => 'yes', 'limit' => '', 'all_url' => '', 'size_chart_url' => ''], $attributes, 'mitkin_looks');
+    $all_url = esc_url($attributes['all_url']);
+    $size_chart_url = esc_url($attributes['size_chart_url']);
     $remaining = filter_var($attributes['limit'], FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
     $ids = wp_parse_id_list($attributes['ids']);
     $looks = get_posts([
@@ -151,15 +153,19 @@ add_shortcode('mitkin_looks', static function ($attributes) {
             'decimals' => wc_get_price_decimals(), 'decimal' => wc_get_price_decimal_separator(),
             'thousand' => wc_get_price_thousand_separator(),
         ])); ?>">
-        <?php if ($attributes['heading'] !== 'no') : ?>
-            <header class="ml-intro"><h2>Готовые образы</h2>
-                <p>Продуманные сочетания для любого случая</p>
-                <span>◇ Выгода 7% при покупке полного образа</span>
+        <?php if ($attributes['heading'] !== 'no' || $all_url) : ?>
+            <header class="ml-intro">
+                <?php if ($attributes['heading'] !== 'no') : ?>
+                    <div><h2>Готовые образы</h2><p>Скидка 7% при покупке всех вещей из готового образа.</p></div>
+                <?php endif; ?>
+                <?php if ($all_url) : ?>
+                    <a class="ml-button ml-all" href="<?php echo $all_url; ?>">Смотреть все образы <span aria-hidden="true">→</span></a>
+                <?php endif; ?>
             </header>
         <?php endif; ?>
         <div class="ml-grid">
             <?php foreach ($looks as $look) {
-                if (mitkin_looks_render($look) && $remaining !== false && --$remaining === 0) {
+                if (mitkin_looks_render($look, $size_chart_url) && $remaining !== false && --$remaining === 0) {
                     break;
                 }
             } ?>
@@ -169,7 +175,7 @@ add_shortcode('mitkin_looks', static function ($attributes) {
     return ob_get_clean();
 });
 
-function mitkin_looks_render($look) {
+function mitkin_looks_render($look, $size_chart_url = '') {
     $rows = [];
     $base = $sale = 0;
     $complete = true;
@@ -206,10 +212,9 @@ function mitkin_looks_render($look) {
                 <?php if ($complete) : ?><em>· выгода 7%</em><?php endif; ?>
             </p>
             <ul class="ml-thumbs">
-                <?php foreach ($rows as [$product, $choices]) : ?>
+                <?php foreach ($rows as [$product]) : ?>
                     <li><?php echo $product->get_image('woocommerce_thumbnail'); ?>
-                        <span><?php echo esc_html($product->get_name()); ?></span>
-                        <?php if ($choices) : ?><i aria-hidden="true">✓</i><?php endif; ?>
+                        <span class="ml-visually-hidden"><?php echo esc_html($product->get_name()); ?></span>
                     </li>
                 <?php endforeach; ?>
             </ul>
@@ -221,27 +226,25 @@ function mitkin_looks_render($look) {
         </div>
         <dialog class="ml-dialog" id="<?php echo esc_attr($dialog); ?>" aria-labelledby="<?php echo esc_attr($dialog . '-title'); ?>">
             <div class="ml-dialog-layout<?php echo $photo ? ' ml-has-photo' : ''; ?>">
+                <button class="ml-close" type="button" aria-label="Закрыть">×</button>
                 <?php if ($photo) : ?>
                     <div class="ml-look-photo"><?php echo wp_get_attachment_image($photo, 'large', false, ['loading' => 'lazy']); ?></div>
                 <?php endif; ?>
                 <form class="ml-form" data-complete="<?php echo $complete ? '1' : '0'; ?>">
-                    <button class="ml-close" type="button" aria-label="Закрыть">×</button>
-                    <span class="ml-kicker"><?php echo esc_html($title); ?></span>
-                    <h2 id="<?php echo esc_attr($dialog . '-title'); ?>">Выбор размеров</h2>
-                    <p class="ml-caption">Выберите размер каждой вещи, которую хотите купить.</p>
-                    <p class="ml-offer">✓ Скидка 7% при покупке полного комплекта</p>
+                    <h2 id="<?php echo esc_attr($dialog . '-title'); ?>"><?php echo esc_html($title); ?></h2>
+                    <p class="ml-subtitle">Соберите образ и выберите размеры</p>
+                    <?php if ($complete) : ?><p class="ml-offer"><strong>Выгода 7%</strong> <em>при покупке полного образа</em></p><?php endif; ?>
                     <input type="hidden" name="look" value="<?php echo esc_attr($look->ID); ?>">
                     <?php foreach ($rows as [$product, $choices]) {
-                        mitkin_looks_render_row($product, $choices);
+                        mitkin_looks_render_row($product, $choices, $dialog, $size_chart_url);
                     } ?>
                     <div class="ml-totals" aria-live="polite">
                         <div><span>Стоимость выбранных вещей</span><span data-base></span></div>
-                        <div class="ml-discount" hidden><span>Скидка за полный образ (7%)</span><span data-discount></span></div>
+                        <div class="ml-discount" hidden><span>Скидка 7%</span><span data-discount></span></div>
                         <div class="ml-grand"><strong>Итого</strong><strong data-total></strong></div>
                     </div>
                     <p class="ml-error" role="alert" hidden></p>
                     <button class="ml-button ml-add" type="submit">Добавить в корзину</button>
-                    <p class="ml-note">Выбранные вещи будут показаны в корзине под названием образа.</p>
                 </form>
             </div>
         </dialog>
@@ -250,7 +253,7 @@ function mitkin_looks_render($look) {
     return true;
 }
 
-function mitkin_looks_render_row($product, array $choices) {
+function mitkin_looks_render_row($product, array $choices, $dialog, $size_chart_url) {
     $variable = $product->is_type('variable');
     ?>
     <div class="ml-row" data-product="<?php echo esc_attr($product->get_id()); ?>">
@@ -261,41 +264,55 @@ function mitkin_looks_render_row($product, array $choices) {
         </div>
         <?php if ($choices) : ?>
             <?php if ($variable) : ?>
-                <label class="ml-size"><span>Размер</span><select class="ml-choice" aria-label="<?php echo esc_attr('Размер: ' . $product->get_name()); ?>">
-                    <option value="" data-price="<?php echo esc_attr(wc_get_price_to_display($choices[0])); ?>" data-sale="<?php echo esc_attr(wc_get_price_to_display($choices[0], ['price' => mitkin_looks_sale_price($choices[0]->get_price())])); ?>">Выберите</option>
-                    <?php
-                    $attribute_values = [];
-                    foreach ($choices as $choice) {
-                        foreach ($choice->get_attributes() as $attribute => $value) {
-                            $attribute_values[$attribute][$value] = true;
-                        }
-                    }
-                    foreach ($choices as $choice) :
-                        $labels = [];
-                        foreach ($choice->get_attributes() as $attribute => $value) {
-                            $term = taxonomy_exists($attribute) ? get_term_by('slug', $value, $attribute) : false;
-                            $labels[$attribute] = $term ? $term->name : $value;
-                        }
-                        foreach ($labels as $attribute => $label) {
-                            if (count($attribute_values[$attribute]) === 1 && count($labels) > 1) {
-                                unset($labels[$attribute]);
+                <fieldset class="ml-size" data-price="<?php echo esc_attr(wc_get_price_to_display($choices[0])); ?>"
+                    data-sale="<?php echo esc_attr(wc_get_price_to_display($choices[0], ['price' => mitkin_looks_sale_price($choices[0]->get_price())])); ?>">
+                    <legend class="ml-visually-hidden"><?php echo esc_html('Размер: ' . $product->get_name()); ?></legend>
+                    <div class="ml-size-heading">
+                        <span>Размер</span>
+                        <?php if ($size_chart_url) : ?>
+                            <a class="ml-size-chart" href="<?php echo $size_chart_url; ?>" target="_blank" rel="noopener">Таблица размеров<span class="ml-visually-hidden"> (новая вкладка)</span></a>
+                        <?php endif; ?>
+                    </div>
+                    <div class="ml-sizes">
+                        <?php
+                        $attribute_values = [];
+                        foreach ($choices as $choice) {
+                            foreach ($choice->get_attributes() as $attribute => $value) {
+                                $attribute_values[$attribute][$value] = true;
                             }
                         }
-                        mitkin_looks_option($choice, implode(' / ', $labels) ?: wc_get_formatted_variation($choice, true, false), false);
-                    endforeach; ?>
-                </select></label>
+                        foreach ($choices as $choice) :
+                            $labels = [];
+                            foreach ($choice->get_attributes() as $attribute => $value) {
+                                $term = taxonomy_exists($attribute) ? get_term_by('slug', $value, $attribute) : false;
+                                $labels[$attribute] = $term ? $term->name : $value;
+                            }
+                            foreach ($labels as $attribute => $label) {
+                                if (count($attribute_values[$attribute]) === 1 && count($labels) > 1) {
+                                    unset($labels[$attribute]);
+                                }
+                            }
+                            $label = implode(' / ', $labels) ?: wc_get_formatted_variation($choice, true, false);
+                            ?>
+                            <label class="ml-size-option">
+                                <input type="radio" class="ml-choice ml-visually-hidden"
+                                    name="<?php echo esc_attr($dialog . '-' . $product->get_id()); ?>" <?php mitkin_looks_choice_attributes($choice, $choice->get_id()); ?>>
+                                <span><?php echo esc_html($label); ?></span>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                </fieldset>
             <?php else : ?>
-                <select class="ml-choice" hidden aria-hidden="true" tabindex="-1"><?php mitkin_looks_option($choices[0], 'Один вариант', true); ?></select>
+                <input type="hidden" class="ml-choice" <?php mitkin_looks_choice_attributes($choices[0], 0); ?>>
             <?php endif; ?>
         <?php endif; ?>
     </div>
     <?php
 }
 
-function mitkin_looks_option($choice, $label, $simple) {
-    printf('<option value="%d" data-price="%s" data-sale="%s">%s</option>',
-        $simple ? 0 : $choice->get_id(),
+function mitkin_looks_choice_attributes($choice, $value) {
+    printf('value="%d" data-price="%s" data-sale="%s"',
+        $value,
         esc_attr(wc_get_price_to_display($choice)),
-        esc_attr(wc_get_price_to_display($choice, ['price' => mitkin_looks_sale_price($choice->get_price())])),
-        esc_html($label));
+        esc_attr(wc_get_price_to_display($choice, ['price' => mitkin_looks_sale_price($choice->get_price())])));
 }
